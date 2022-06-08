@@ -4,10 +4,15 @@ import androidx.activity.result.ActivityResult;
 import androidx.activity.result.ActivityResultCallback;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.bumptech.glide.Glide;
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.FirebaseFirestore;
 
 import android.content.Intent;
 import android.net.Uri;
@@ -27,6 +32,8 @@ import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.HashMap;
+import java.util.Map;
 
 
 import javax.net.ssl.HttpsURLConnection;
@@ -139,52 +146,38 @@ public class RegisterActivity extends AppCompatActivity {
                 String title = params[1];
                 String content = params[2];
 
-                String server_url = "http://15.164.252.136/reg_board.php";
+                    //Connect to firebase
+                    FirebaseFirestore db = FirebaseFirestore.getInstance();
+                    //response after uploading to firebase
+                    final String[] response = {""};
 
+                        //map content to object
+                        Map<String, Object> comment = new HashMap<>();
+                        comment.put("userid", userid);
+                        comment.put("content", content);
+                        comment.put("title", title);
+                        //add data to comments collection in firebase
+                        db.collection("comments")
+                                .add(comment)
+                                .addOnSuccessListener(
+                                        new OnSuccessListener<DocumentReference>() {
+                                            @Override
+                                            public void onSuccess(DocumentReference documentReference) {
+                                                response[0] = "Comment added Successfully";
+                                                Intent intent = new Intent(RegisterActivity.this, ListActivity.class);
+                                                startActivity(intent);
+                                            }
+                                        }
+                                )
+                                .addOnFailureListener(new OnFailureListener() {
+                                    @Override
+                                    public void onFailure(@NonNull Exception e) {
+                                        response[0] = "Error";
 
-                URL url;
-                String response = "";
-                try {
-                    url = new URL(server_url);
+                                    }
+                                });
 
-                    HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                    conn.setReadTimeout(15000);
-                    conn.setConnectTimeout(15000);
-                    conn.setRequestMethod("POST");
-                    conn.setDoInput(true);
-                    conn.setDoOutput(true);
-                    Uri.Builder builder = new Uri.Builder()
-                            .appendQueryParameter("userid", userid)
-                            .appendQueryParameter("title", title)
-                            .appendQueryParameter("content", content);
-                    String query = builder.build().getEncodedQuery();
-
-                    OutputStream os = conn.getOutputStream();
-                    BufferedWriter writer = new BufferedWriter(
-                            new OutputStreamWriter(os, "UTF-8"));
-                    writer.write(query);
-                    writer.flush();
-                    writer.close();
-                    os.close();
-
-                    conn.connect();
-                    int responseCode = conn.getResponseCode();
-
-                    if (responseCode == HttpsURLConnection.HTTP_OK) {
-                        String line;
-                        BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-                        while ((line = br.readLine()) != null) {
-                            response += line;
-                        }
-                    } else {
-                        response = "";
-
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();
+                    return response[0];
                 }
-
-                return response;
-            }
         }
     }
