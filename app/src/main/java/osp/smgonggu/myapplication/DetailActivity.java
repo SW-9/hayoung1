@@ -1,8 +1,10 @@
 package osp.smgonggu.myapplication;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.content.Context;
+import android.content.Intent;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -16,6 +18,13 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.FirebaseFirestore;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -27,6 +36,8 @@ import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.HashMap;
+import java.util.Map;
 
 import javax.net.ssl.HttpsURLConnection;
 
@@ -73,6 +84,7 @@ public class DetailActivity extends AppCompatActivity {
                 regCmt.execute(userid, comment_et.getText().toString(), board_seq);
             }
         });
+
 
 // 해당 게시물의 데이터 불러오기
         InitData();
@@ -136,9 +148,14 @@ public class DetailActivity extends AppCompatActivity {
         protected String doInBackground(String... params) {
 
             String board_seq = params[0];
+            DatabaseReference appDb;
+            appDb = FirebaseDatabase.getInstance().getReference();
+
+
 
 // 호출할 php 파일 경로
             String server_url = "http://15.164.252.136/load_board_detail.php";
+
 
 
             URL url;
@@ -338,53 +355,45 @@ public class DetailActivity extends AppCompatActivity {
             String content = params[1];
             String board_seq = params[2];
 
-            String server_url = "http://15.164.252.136/reg_comment.php";
-
-
-            URL url;
-            String response = "";
+            //Connect to firebase
+            FirebaseFirestore db = FirebaseFirestore.getInstance();
+            //response after uploading to firebase
+            final String[] response = {""};
             try {
-                url = new URL(server_url);
+                //map content to object
+                Map<String, Object> comment = new HashMap<>();
+                comment.put("userid",userid);
+                comment.put("content",content);
+                comment.put("board_seq",board_seq);
+                //add data to comments collection in firebase
+                db.collection("comments")
+                        .add(comment)
+                        .addOnSuccessListener(
+                                new OnSuccessListener<DocumentReference>() {
+                                    @Override
+                                    public void onSuccess(DocumentReference documentReference) {
+                                        response[0] = "Comment added Successfully";
+                                        Intent intent = new Intent(DetailActivity.this, ListActivity.class);
+                                        startActivity(intent);
+                                    }
+                                }
+                        )
+                        .addOnFailureListener(new OnFailureListener() {
+                            @Override
+                            public void onFailure(@NonNull Exception e) {
+                                response[0] = "Error";
 
-                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                conn.setReadTimeout(15000);
-                conn.setConnectTimeout(15000);
-                conn.setRequestMethod("POST");
-                conn.setDoInput(true);
-                conn.setDoOutput(true);
-                Uri.Builder builder = new Uri.Builder()
-                        .appendQueryParameter("userid", userid)
-                        .appendQueryParameter("content", content)
-                        .appendQueryParameter("board_seq", board_seq);
-                String query = builder.build().getEncodedQuery();
+                            }
+                        });
 
-                OutputStream os = conn.getOutputStream();
-                BufferedWriter writer = new BufferedWriter(
-                        new OutputStreamWriter(os, "UTF-8"));
-                writer.write(query);
-                writer.flush();
-                writer.close();
-                os.close();
-
-                conn.connect();
-                int responseCode=conn.getResponseCode();
-
-                if (responseCode == HttpsURLConnection.HTTP_OK) {
-                    String line;
-                    BufferedReader br=new BufferedReader(new InputStreamReader(conn.getInputStream()));
-                    while ((line=br.readLine()) != null) {
-                        response+=line;
-                    }
-                }
-                else {
-                    response="";
-
-                }
             } catch (Exception e) {
                 e.printStackTrace();
             }
 
-            return response;
+            return response[0];
         }
     }
+
+
 }
+

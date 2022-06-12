@@ -106,6 +106,7 @@
             android:layout_width="wrap_content"
             android:layout_height="match_parent"
             android:padding="8dp"
-            android:text="등록하기"/>
+            android:text="등록"/>
+
     </LinearLayout>
 </LinearLayout>
